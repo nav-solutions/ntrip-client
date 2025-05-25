@@ -1,0 +1,32 @@
+[package]
+name = "ntrip-client"
+version = "0.0.1"
+license = "MPL-2.0"
+authors = ["Guillaume W. Bres <guillaume.bressaix@gmail.com>"]
+description = "NTRIP client"
+homepage = "https://github.com/rtk-rs"
+repository = "https://github.com/rtk-rs/ntrip-client"
+keywords = ["geo", "rtcm", "tcp", "tokio"]
+categories = ["science", "science::geo"]
+edition = "2021"
+readme = "README.md"
+
+[package.metadata]
+msrv = "1.78"
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docrs", "--generate-link-to-definition"]
+
+[features]
+default = []
+
+# Unlock client logs
+log = ["dep:log"]
+
+[dependencies]
+thiserror = "2"
+base64 = "0.21"
+rtcm-rs = "0.11"
+log = { version = "0.4", optional = true }
+tokio = { version = "1.45.0", features = ["full"] }
