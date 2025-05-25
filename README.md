@@ -20,7 +20,7 @@ Getting started
 ===============
 
 ```toml
-ntrip-client = "0.1"
+ntrip-client = "0.0.1"
 ```
 
 ```rust
