@@ -1,8 +1,5 @@
 ## NTRIP Client
 
-NTRIP client to be used in all our applications that require RTCM messaging
-by means of an NTRIP slot.
-
 [![Rust](https://github.com/rtk-rs/ntrip-client/actions/workflows/rust.yml/badge.svg)](https://github.com/rtk-rs/ntrip-client/actions/workflows/rust.yml)
 [![Rust](https://github.com/rtk-rs/ntrip-client/actions/workflows/daily.yml/badge.svg)](https://github.com/rtk-rs/ntrip-client/actions/workflows/daily.yml)
 [![crates.io](https://docs.rs/ntrip-client/badge.svg)](https://docs.rs/ntrip-client/)
@@ -10,12 +7,12 @@ by means of an NTRIP slot.
 
 [![License](https://img.shields.io/badge/license-MPL_2.0-orange?style=for-the-badge&logo=mozilla)](https://github.com/rtk-rs/ntrip-client/blob/main/LICENSE)
 
+NTRIP client used by all our applications that require RTCM messaging (downlink), through NTRIP connection.
+
 Backend framework
 =================
 
-`ntrip-client` supports both `tokio` backend on dedicated crate feature. 
-For single-threaded use cases, it is possible to use the synchronous / blocking `Read` implementation that
-we propose as well.
+`ntrip-client` currently uses `tokio` as the multi-threading backend.
 
 Getting started
 ===============
