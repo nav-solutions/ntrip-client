@@ -1,6 +1,6 @@
 [package]
 name = "ntrip-client"
-version = "0.1.0"
+version = "0.0.1"
 license = "MPL-2.0"
 authors = ["Guillaume W. Bres <guillaume.bressaix@gmail.com>"]
 description = "NTRIP client"
@@ -12,6 +12,7 @@ edition = "2021"
 readme = "README.md"
 
 [package.metadata]
+msrv = "1.78"
 
 [package.metadata.docs.rs]
 all-features = true

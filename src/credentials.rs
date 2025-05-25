@@ -2,7 +2,7 @@
 use base64::{engine::general_purpose, Engine};
 
 #[cfg(doc)]
-use crate::NTRPClient;
+use crate::NTRIPClient;
 
 /// [NTRIPCredentials] optionally used by [NTRIPClient]s
 #[derive(Clone, Default, PartialEq)]
