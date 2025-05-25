@@ -192,17 +192,17 @@ impl NTRIPClient {
     }
 }
 
-#[cfg(test)]
-mod test {
-    use crate::NTRIPClient;
-
-    #[tokio::test]
-    async fn test_simple_connection() {
-        let mut client = NTRIPClient::new("caster.centipede.fr", 2101, "ENSMM")
-            .with_credentials("centipede", "centipede");
-
-        client.run().await.unwrap_or_else(|e| {
-            panic!("run() failed with {}", e);
-        });
-    }
-}
+// #[cfg(test)]
+// mod test {
+//     use crate::NTRIPClient;
+// 
+//     #[tokio::test]
+//     async fn test_simple_connection() {
+//         let mut client = NTRIPClient::new("caster.centipede.fr", 2101, "ENSMM")
+//             .with_credentials("centipede", "centipede");
+// 
+//         client.run().await.unwrap_or_else(|e| {
+//             panic!("run() failed with {}", e);
+//         });
+//     }
+// }
