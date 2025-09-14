@@ -2,7 +2,10 @@
 name = "ntrip-client"
 version = "0.0.1"
 license = "MPL-2.0"
-authors = ["Guillaume W. Bres <guillaume.bressaix@gmail.com>"]
+authors = [
+    "Guillaume W. Bres <guillaume.bressaix@gmail.com>",
+    "Ryan Kurte <ryan@kurte.nz>"
+]
 description = "NTRIP client"
 homepage = "https://github.com/rtk-rs"
 repository = "https://github.com/rtk-rs/ntrip-client"
@@ -19,14 +22,36 @@ all-features = true
 rustdoc-args = ["--cfg", "docrs", "--generate-link-to-definition"]
 
 [features]
-default = []
+default = [ "log", "clap", "serde", "anyhow" ]
 
 # Unlock client logs
-log = ["dep:log"]
+log = ["dep:tracing", "dep:tracing-subscriber"]
+clap = ["dep:clap"]
+serde = ["dep:serde", "rtcm-rs/serde", "geoutils/serde"]
 
 [dependencies]
 thiserror = "2"
 base64 = "0.22"
 rtcm-rs = "0.11"
-log = { version = "0.4", optional = true }
+futures = "0.3"
 tokio = { version = "1.45.0", features = ["full"] }
+strum = { version = "0.27.2", features = ["derive"] }
+reqwest = { version = "0.12", features = ["rustls-tls"] }
+http = "1.3.1"
+tokio-rustls = "0.26.2"
+rustls = "0.23.31"
+webpki-roots = "1.0.2"
+geoutils = "0.5.1"
+isocountry = "0.3.2"
+
+tracing = { version = "0.1.41", optional = true, features = ["log"] }
+tracing-subscriber = { version = "0.3.17", optional = true, features = ["fmt", "env-filter"] }
+clap = { version = "4.5", optional = true, features = ["derive", "env"] }
+serde = { version = "1.0", optional = true, features = ["derive"] }
+anyhow = { version = "1.0.0", optional = true }
+
+[[bin]]
+name = "ntrip-cli"
+path = "src/bin/ntrip-cli.rs"
+required-features = ["clap", "log", "anyhow"]
+
