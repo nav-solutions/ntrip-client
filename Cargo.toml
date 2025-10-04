@@ -50,8 +50,7 @@ clap = { version = "4.5", optional = true, features = ["derive", "env"] }
 serde = { version = "1.0", optional = true, features = ["derive"] }
 anyhow = { version = "1.0.0", optional = true }
 
-[[bin]]
-name = "ntrip-cli"
-path = "src/bin/ntrip-cli.rs"
+[[examples]]
+name = "simple-cli"
+path = "examples/simple-cli.rs"
 required-features = ["clap", "log", "anyhow"]
-
