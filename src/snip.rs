@@ -183,9 +183,7 @@ impl MountInfo {
             .unwrap_or(Network::Unknown);
 
         // Part 8: country
-        let country = parts
-            .get(8)
-            .and_then(|s| CountryCode::for_alpha3(s).ok());
+        let country = parts.get(8).and_then(|s| CountryCode::for_alpha3(s).ok());
 
         // Parts 9-11: lat, lon, (alt?)
         let location = Location::new(
