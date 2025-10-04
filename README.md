@@ -23,7 +23,7 @@ Getting started
 ntrip-client = "0.0.1"
 ```
 
-See [src/bin/ntrip-cli.rs](src/bin/ntrip-cli.rs) for a complete example.
+Refer to the [provided example](examples/) for a complete demo.
 
 ```rust
 // Configure server
