@@ -14,14 +14,10 @@ NTRIP client used by all our applications that require RTCM messaging (downlink)
 Backend framework
 =================
 
-`ntrip-client` currently uses `tokio` as the multi-threading backend.
+`ntrip-client` uses `tokio` as the socket, channel and threading backend.
 
 Getting started
 ===============
-
-```toml
-ntrip-client = "0.0.1"
-```
 
 Refer to the [provided example](examples/) for a complete demo.
 
