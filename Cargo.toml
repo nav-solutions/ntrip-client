@@ -1,14 +1,14 @@
 [package]
 name = "ntrip-client"
-version = "0.0.1"
+version = "0.1.0"
 license = "MPL-2.0"
 authors = [
     "Guillaume W. Bres <guillaume.bressaix@gmail.com>",
     "Ryan Kurte <ryan@kurte.nz>"
 ]
 description = "NTRIP client"
-homepage = "https://github.com/rtk-rs"
-repository = "https://github.com/rtk-rs/ntrip-client"
+homepage = "https://github.com/nav-solutions"
+repository = "https://github.com/nav-solutions/ntrip-client"
 keywords = ["geo", "rtcm", "tcp", "tokio"]
 categories = ["science", "science::geo"]
 edition = "2021"
@@ -22,12 +22,15 @@ all-features = true
 rustdoc-args = ["--cfg", "docrs", "--generate-link-to-definition"]
 
 [features]
-default = [ "log", "clap", "serde", "anyhow" ]
+default = ["log", "clap", "serde"]
 
 # Unlock client logs
 log = ["dep:tracing", "dep:tracing-subscriber"]
 clap = ["dep:clap"]
 serde = ["dep:serde", "rtcm-rs/serde", "geoutils/serde"]
+
+[dev-dependencies]
+anyhow = "1"
 
 [dependencies]
 thiserror = "2"
@@ -48,9 +51,8 @@ tracing = { version = "0.1.41", optional = true, features = ["log"] }
 tracing-subscriber = { version = "0.3.17", optional = true, features = ["fmt", "env-filter"] }
 clap = { version = "4.5", optional = true, features = ["derive", "env"] }
 serde = { version = "1.0", optional = true, features = ["derive"] }
-anyhow = { version = "1.0.0", optional = true }
 
 [[examples]]
 name = "simple-cli"
 path = "examples/simple-cli.rs"
-required-features = ["clap", "log", "anyhow"]
+required-features = ["clap", "log"]

@@ -33,8 +33,60 @@ pub struct NtripConfig {
     pub use_tls: bool,
 }
 
+impl Default for NtripConfig {
+    /// Builds a default [NtripConfig] ready to connect to [RtcmProvider::Centipede] network.
+    /// The network does not requires SSL.
+    fn default() -> Self {
+        Self::from_provider(RtcmProvider::Centipede)
+    }
+}
+
+impl NtripConfig {
+    /// Generate a connection URL ("host:port") from the NtripConfig
+    pub fn to_url(&self) -> String {
+        format!("{}:{}", self.host, self.port)
+    }
+
+    /// Prepares an [NtripConfig] for one of our predefined [RtcmProvider]s
+    pub fn from_provider(network: RtcmProvider) -> Self {
+        Self {
+            host: network.host().to_string(),
+            port: network.port(),
+            use_tls: network.uses_tls(),
+        }
+    }
+
+    /// Copies and returns [NtripConfig] with updated "host" IP address
+    pub fn with_host(&self, address: &str) -> Self {
+        let mut s = self.clone();
+        s.host = address.to_string();
+        s
+    }
+
+    /// Copies and returns [NtripConfig] with updated port number
+    pub fn with_port(&self, port: u16) -> Self {
+        let mut s = self.clone();
+        s.port = port;
+        s
+    }
+
+    /// Copies and returns [NtripConfig] with TLS/SSL active
+    pub fn with_tls(&self) -> Self {
+        let mut s = self.clone();
+        s.use_tls = true;
+        s
+    }
+
+    /// Copies and returns [NtripConfig] without TLS/SSL active
+    pub fn without_tls(&self) -> Self {
+        let mut s = self.clone();
+        s.use_tls = false;
+        s
+    }
+}
+
 /// Credentials for an NTRIP (RTCM) service
-#[derive(Clone, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq, Debug)]
 #[cfg_attr(feature = "clap", derive(clap::Parser))]
 pub struct NtripCredentials {
     /// Username for the NTRIP service
@@ -49,10 +101,19 @@ pub struct NtripCredentials {
     pub pass: String,
 }
 
-impl NtripConfig {
-    /// Generate a connection URL ("host:port") from the NtripConfig
-    pub fn url(&self) -> String {
-        format!("{}:{}", self.host, self.port)
+impl NtripCredentials {
+    /// Copies and returns updated [NtripCredentials]
+    pub fn with_username(&self, username: &str) -> Self {
+        let mut s = self.clone();
+        s.user = username.to_string();
+        s
+    }
+
+    /// Copies and returns updated [NtripCredentials]
+    pub fn with_password(&self, password: &str) -> Self {
+        let mut s = self.clone();
+        s.pass = password.to_string();
+        s
     }
 }
 
@@ -98,8 +159,8 @@ impl RtcmProvider {
         }
     }
 
-    /// Does the provider require TLS / SSL?
-    pub fn use_tls(&self) -> bool {
+    /// Returns true if this [RtcmProvider] requires TLS/SSL.
+    pub fn uses_tls(&self) -> bool {
         match self {
             RtcmProvider::Linz => false,
             RtcmProvider::Rtk2Go => false,
@@ -139,11 +200,7 @@ impl FromStr for NtripConfig {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         // Match on known providers
         if let Ok(provider) = RtcmProvider::from_str(s) {
-            return Ok(NtripConfig {
-                host: provider.host().to_string(),
-                port: provider.port(),
-                use_tls: provider.use_tls(),
-            });
+            return Ok(NtripConfig::from_provider(provider));
         }
 
         // Strip protocol if present

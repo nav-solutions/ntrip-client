@@ -34,7 +34,66 @@ pub struct NtripClient {
     creds: NtripCredentials,
 }
 
-/// NTRIP Mount handle, used to stream RTCM messages from an NTRIP service
+/// [NtripHandle] is the Mount handle, it implements [Stream]
+/// which is how you can receiver messages in real-time.
+///
+/// ```
+/// use tokio::select;
+/// use tokio::sync; // broadcast channem
+/// use futures::StreamExt; // real-time channel
+///
+/// use ntrip_client::{
+///     NtripClient,
+///     NtripConfig,
+///     RtcmProvider,
+///     NtripCredentials,
+///     NtripClientError,
+/// };
+///
+/// async fn basic_listener() -> Result<(), anyhow::Error> {
+///
+///     // this network does not require SSL
+///     let config = NtripConfig::from_provider(RtcmProvider::Centipede);
+///
+///     // adapt your credentials to the network
+///     let creds = NtripCredentials::default()
+///         .with_username("user")
+///         .with_password("password");
+///
+///     // client definition
+///     let mut client = NtripClient::new(config, creds)
+///         .await?;
+///
+///     // this channel allows graceful exit
+///     let (exit_tx, mut exit_rx) = sync::broadcast::channel(1);
+///
+///     // subscribe to remote server
+///     let mut mountpoint = client.mount("192.168.1.1:1234", exit_tx).await?;
+///
+///     // listening
+///     loop {
+///         select! {
+///             message = mountpoint.next() => match message {
+///                 Some(msg) => {
+///                     println!("received RTCM message: {:?}", msg);
+///                 },
+///                 None => {
+///                     println!("End of stream!");
+///                     break;
+///                 },
+///             },
+///             _ = exit_rx.recv() => {
+///                 println!("graceful exit");
+///                 break;
+///             },
+///         }
+///     }
+///
+///     Ok(())
+/// }
+///
+/// basic_listener();
+/// ```
 pub struct NtripHandle {
     _rx_handle: tokio::task::JoinHandle<()>,
     ntrip_rx: UnboundedReceiver<Message>,
@@ -105,6 +164,15 @@ impl NtripClient {
         Ok(snip_info)
     }
 
+    /// 'Mount' the [NtripClient] from remote $url/$mount service point.
+    /// On success, you can then start listening to messages from the server.
+    ///
+    /// ## Input
+    /// - mount: readable remote mount point (server name)
+    /// - exit_tx: [BroadcastSender] is passed to allow graceful exit on errors
+    ///
+    /// ## Output
+    /// - [NtripHandle] which implements [Stream] to receive messages in real-time.
     pub async fn mount(
         &mut self,
         mount: impl ToString,
@@ -112,11 +180,11 @@ impl NtripClient {
     ) -> Result<NtripHandle, NtripClientError> {
         debug!(
             "Connecting to NTRIP server {}/{}",
-            self.config.url(),
+            self.config.to_url(),
             mount.to_string()
         );
 
-        let sock = TcpStream::connect(&self.config.url()).await?;
+        let sock = TcpStream::connect(&self.config.to_url()).await?;
 
         let (rx_handle, ntrip_rx) = match self.config.use_tls {
             true => {
@@ -199,7 +267,7 @@ impl NtripClient {
         debug!("Write HTTP request");
         sock.write_all(format!("GET /{} HTTP/1.0\r\n", mount).as_bytes())
             .await?;
-        sock.write_all(format!("Host: {}\r\n", config.url()).as_bytes())
+        sock.write_all(format!("Host: {}\r\n", config.to_url()).as_bytes())
             .await?;
 
         // Write HTTP headers
