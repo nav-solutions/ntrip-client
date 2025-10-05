@@ -28,14 +28,9 @@ use crate::{
     snip::ServerInfo,
 };
 
-/// NTRIP Client, used to connect to an NTRIP (RTCM) service
-pub struct NtripClient {
-    config: NtripConfig,
-    creds: NtripCredentials,
-}
-
-/// [NtripHandle] is the Mount handle, it implements [Stream]
-/// which is how you can receiver messages in real-time.
+/// NTRIP Client, used to connect to an NTRIP (RTCM) service.
+/// When "mounted", the [NtripHandle] allows real-time messaging
+/// through a [Stream] channel.
 ///
 /// ```
 /// use tokio::select;
@@ -94,6 +89,13 @@ pub struct NtripClient {
 ///
 /// basic_listener();
 /// ```
+pub struct NtripClient {
+    config: NtripConfig,
+    creds: NtripCredentials,
+}
+
+/// [NtripHandle] is the Mount handle, it implements [Stream]
+/// which is how you can receiver messages in real-time.
 pub struct NtripHandle {
     _rx_handle: tokio::task::JoinHandle<()>,
     ntrip_rx: UnboundedReceiver<Message>,
