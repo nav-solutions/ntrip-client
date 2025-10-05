@@ -13,6 +13,7 @@ keywords = ["geo", "rtcm", "tcp", "tokio"]
 categories = ["science", "science::geo"]
 edition = "2021"
 readme = "README.md"
+exclude = ["tools/*"]
 
 [package.metadata]
 msrv = "1.82"
