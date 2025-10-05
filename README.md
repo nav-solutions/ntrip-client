@@ -19,10 +19,6 @@ Backend framework
 Getting started
 ===============
 
-```toml
-ntrip-client = "0.0.1"
-```
-
 Refer to the [provided example](examples/) for a complete demo.
 
 ```rust
