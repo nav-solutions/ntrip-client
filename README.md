@@ -19,47 +19,7 @@ Backend framework
 Getting started
 ===============
 
-Refer to the [provided example](examples/) for a complete demo.
-
-```rust
-// Configure server
-let ntrip_config = "centipede".parse::<NtripConfig>();
-let ntrip_creds = NtripCredentials{
-    user: "centipede".to_string(),
-    pass: "centipede".to_string(),
-}
-
-// Setup client
-let mut client = NtripClient::new(ntrip_config, ntrip_creds).await.unwrap();
-
-// List mounts
-let server_info = client.list_mounts().await.unwrap();
-for m in server_info.mounts {
-    println!("{} - {}", m.name, m.details);
-}
-
-// Subscribe to a mount
-let (exit_tx, exit_rx) = tokio::sync::broadcast(1);
-let handle = client.mount("VALDM", exit_tx.clone());
-
-loop {
-    select!{
-        m = client.next() => match m {
-            Some(m) => {
-                info!("Received RTCM message: {:?}", m);
-            },
-            None => {
-                error!("NTRIP client stream ended");
-                break;
-            }
-        },
-        _ = exit_rx.recv() => {
-            info!("Exiting on signal");
-            break;
-        }
-    }
-}
-```
+Refer to the online documentation and [the provided examples](examples/).
 
 Licensing
 =========

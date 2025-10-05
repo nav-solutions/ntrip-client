@@ -52,23 +52,31 @@ use crate::{
 ///
 ///     // adapt your credentials to the network
 ///     let creds = NtripCredentials::default()
-///         .with_username("user")
+///         .with_username("centipede")
 ///         .with_password("password");
 ///
 ///     // client definition
 ///     let mut client = NtripClient::new(config, creds)
 ///         .await?;
 ///
+///     // list available mountpoints
+///     let mountpoints = client.list_mounts()
+///         .await?;
+///
+///     for remote in mountpoints.services {
+///         println!("{} - {}", remote.name, remote.details);
+///     }
+///
 ///     // this channel allows graceful exit
 ///     let (exit_tx, mut exit_rx) = sync::broadcast::channel(1);
 ///
 ///     // subscribe to remote server
-///     let mut mountpoint = client.mount("192.168.1.1:1234", exit_tx).await?;
+///     let mut handle = client.mount("VALDM", exit_tx).await?;
 ///
 ///     // listening
 ///     loop {
 ///         select! {
-///             message = mountpoint.next() => match message {
+///             message = handle.next() => match message {
 ///                 Some(msg) => {
 ///                     println!("received RTCM message: {:?}", msg);
 ///                 },
