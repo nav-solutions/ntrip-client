@@ -34,7 +34,7 @@ use crate::{
 ///
 /// ```
 /// use tokio::select;
-/// use tokio::sync; // broadcast channem
+/// use tokio::sync; // broadcast channel
 /// use futures::StreamExt; // real-time channel
 ///
 /// use ntrip_client::{
@@ -103,10 +103,10 @@ pub struct NtripClient {
 }
 
 /// [NtripHandle] is the Mount handle, it implements [Stream]
-/// which is how you can receiver messages in real-time.
+/// which is how you can receive messages in real-time.
 pub struct NtripHandle {
     _rx_handle: tokio::task::JoinHandle<()>,
-    ntrip_rx: UnboundedReceiver<Message>,
+    ntrip_rx: UnboundedReceiver<(Message, Vec<u8>)>,
 }
 
 #[derive(Debug, thiserror::Error)]
@@ -246,7 +246,7 @@ impl NtripClient {
         mount: &str,
         exit_tx: BroadcastSender<()>,
         mut sock: impl AsyncRead + AsyncWrite + Unpin + Send + 'static,
-    ) -> Result<(JoinHandle<()>, UnboundedReceiver<Message>), NtripClientError> {
+    ) -> Result<(JoinHandle<()>, UnboundedReceiver<(Message, Vec<u8>)>), NtripClientError> {
         // Setup HTTP headers
         let mut headers = HeaderMap::new();
         headers.append(
@@ -365,7 +365,8 @@ impl NtripClient {
                                         debug!("Parsed RTCM message: {:?} (consumed {} bytes)", m, f.frame_len());
 
                                         // Emit message
-                                        ntrip_tx.send(m).unwrap();
+                                        let raw_data = buff[..f.frame_len()].to_vec();
+                                        ntrip_tx.send((m, raw_data)).unwrap();
 
                                         // Remove parsed data from the buffer
                                         let _ = buff.drain(..f.frame_len());
@@ -419,7 +420,7 @@ impl NtripClient {
 
 /// [Stream] NTRIP [Message]'s from an [NtripHandle]
 impl Stream for NtripHandle {
-    type Item = Message;
+    type Item = (Message, Vec<u8>);
 
     fn poll_next(
         mut self: std::pin::Pin<&mut Self>,
@@ -434,6 +435,7 @@ mod tests {
     use std::env;
 
     use futures::StreamExt;
+    use rustls::crypto::CryptoProvider;
     use tracing::debug;
 
     use super::*;
@@ -451,6 +453,9 @@ mod tests {
     #[ignore = "Requires NTRIP config from the environment"]
     async fn test_ntrip_client() {
         setup_logging();
+
+        // Install the default crypto provider
+        CryptoProvider::install_default(rustls::crypto::ring::default_provider()).ok();
 
         debug!("Connecting to NTRIP server");
 
@@ -474,8 +479,9 @@ mod tests {
             .unwrap();
 
         for _i in 0..10 {
-            let m = h.next().await.unwrap();
+            let (m, d) = h.next().await.unwrap();
             debug!("Got RTCM message: {:?}", m);
+            debug!("Raw data: {:02x?}", d);
         }
 
         let _ = exit_tx.send(());
