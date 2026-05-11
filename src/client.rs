@@ -65,11 +65,8 @@ use crate::{
 ///         println!("{} - {}", remote.name, remote.details);
 ///     }
 ///
-///     // this channel allows graceful exit
-///     let (exit_tx, mut exit_rx) = sync::broadcast::channel(1);
-///
 ///     // subscribe to remote server
-///     let mut handle = client.mount("VALDM", exit_tx).await?;
+///     let mut handle = client.mount("VALDM").await?;
 ///
 ///     // listening
 ///     loop {
@@ -82,10 +79,6 @@ use crate::{
 ///                     println!("End of stream!");
 ///                     break;
 ///                 },
-///             },
-///             _ = exit_rx.recv() => {
-///                 println!("graceful exit");
-///                 break;
 ///             },
 ///         }
 ///     }
