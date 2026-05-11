@@ -86,7 +86,7 @@ impl NtripConfig {
 }
 
 /// Credentials for an NTRIP (RTCM) service
-#[derive(Clone, Default, PartialEq, Debug)]
+#[derive(Clone, Default, PartialEq)]
 #[cfg_attr(feature = "clap", derive(clap::Parser))]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NtripCredentials {
@@ -115,6 +115,15 @@ impl NtripCredentials {
         let mut s = self.clone();
         s.pass = password.to_string();
         s
+    }
+}
+
+impl std::fmt::Debug for NtripCredentials {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("NtripCredentials")
+            .field("user", &self.user)
+            .field("pass", &"********")
+            .finish()
     }
 }
 

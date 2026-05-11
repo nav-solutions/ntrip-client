@@ -4,19 +4,16 @@ use std::sync::Arc;
 
 use base64::{engine::general_purpose, Engine as _};
 use futures::Stream;
-use http::{
-    header::{InvalidHeaderValue, ToStrError, USER_AGENT},
-    HeaderMap, HeaderValue, Method,
-};
+use http::{header::USER_AGENT, HeaderMap, HeaderValue, Method};
 use rtcm_rs::{Message, MessageFrame};
-use rustls::pki_types::{InvalidDnsNameError, ServerName};
+use rustls::pki_types::ServerName;
 use tokio::{
     io::{AsyncRead, AsyncReadExt as _, AsyncWrite, AsyncWriteExt},
     net::TcpStream,
     select,
     sync::{
         broadcast::Sender as BroadcastSender,
-        mpsc::{unbounded_channel, UnboundedReceiver},
+        mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
     },
     task::JoinHandle,
 };
@@ -26,6 +23,7 @@ use tracing::{debug, error, trace, warn};
 use crate::{
     config::{NtripConfig, NtripCredentials},
     snip::ServerInfo,
+    NtripClientError,
 };
 
 /// NTRIP Client, used to connect to an NTRIP (RTCM) service.
@@ -67,11 +65,8 @@ use crate::{
 ///         println!("{} - {}", remote.name, remote.details);
 ///     }
 ///
-///     // this channel allows graceful exit
-///     let (exit_tx, mut exit_rx) = sync::broadcast::channel(1);
-///
 ///     // subscribe to remote server
-///     let mut handle = client.mount("VALDM", exit_tx).await?;
+///     let mut handle = client.mount("VALDM").await?;
 ///
 ///     // listening
 ///     loop {
@@ -84,10 +79,6 @@ use crate::{
 ///                     println!("End of stream!");
 ///                     break;
 ///                 },
-///             },
-///             _ = exit_rx.recv() => {
-///                 println!("graceful exit");
-///                 break;
 ///             },
 ///         }
 ///     }
@@ -104,30 +95,10 @@ pub struct NtripClient {
 
 /// [NtripHandle] is the Mount handle, it implements [Stream]
 /// which is how you can receive messages in real-time.
-pub struct NtripHandle {
+pub struct NtripHandle<RX = UnboundedReceiver<(Message, Vec<u8>)>> {
     _rx_handle: tokio::task::JoinHandle<()>,
-    ntrip_rx: UnboundedReceiver<(Message, Vec<u8>)>,
-}
-
-#[derive(Debug, thiserror::Error)]
-pub enum NtripClientError {
-    #[error("Io error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Reqwest error: {0}")]
-    Reqwest(#[from] reqwest::Error),
-
-    #[error("Invalid header value {0}")]
-    InvalidHeaderValue(#[from] InvalidHeaderValue),
-
-    #[error("Invalid DNS name {0}")]
-    InvalidDnsName(#[from] InvalidDnsNameError),
-
-    #[error("Header ToStrError error {0}")]
-    ToStrError(#[from] ToStrError),
-
-    #[error("Response error")]
-    ResponseError(String),
+    ntrip_rx: RX,
+    exit_tx: BroadcastSender<()>,
 }
 
 impl NtripClient {
@@ -163,7 +134,7 @@ impl NtripClient {
 
         let res = client.execute(req).await?;
 
-        debug!("Fetched NTRIP response: {:?}", res.status());
+        trace!("Fetched NTRIP response: {:?}", res.status());
 
         let body = res.text().await?;
 
@@ -186,17 +157,66 @@ impl NtripClient {
     pub async fn mount(
         &mut self,
         mount: impl ToString,
-        exit_tx: BroadcastSender<()>,
-    ) -> Result<NtripHandle, NtripClientError> {
+    ) -> Result<NtripHandle<UnboundedReceiver<(Message, Vec<u8>)>>, NtripClientError> {
+        let (ntrip_tx, ntrip_rx) = unbounded_channel();
+
+        let (_rx_handle, exit_tx) = self.mount_internal(mount, ntrip_tx).await?;
+
+        Ok(NtripHandle {
+            _rx_handle: _rx_handle,
+            ntrip_rx: ntrip_rx,
+            exit_tx: exit_tx,
+        })
+    }
+
+    /// 'Mount' the [NtripClient] from remote $url/$mount service point.
+    /// On success, you can then start listening to messages from the server.
+    ///
+    /// ## Input
+    /// - mount: readable remote mount point (server name)
+    /// - exit_tx: [BroadcastSender] is passed to allow graceful exit on errors
+    ///
+    /// ## Output
+    /// - [NtripHandle<()>] which will route received messages throught the provided channel
+    pub async fn mount_with_sink(
+        &mut self,
+        mount: impl ToString,
+        ntrip_tx: UnboundedSender<(Message, Vec<u8>)>,
+    ) -> Result<NtripHandle<()>, NtripClientError> {
+        let (_rx_handle, exit_tx) = self.mount_internal(mount, ntrip_tx).await?;
+
+        Ok(NtripHandle {
+            _rx_handle: _rx_handle,
+            ntrip_rx: (),
+            exit_tx: exit_tx,
+        })
+    }
+
+    /// 'Mount' the [NtripClient] from remote $url/$mount service point.
+    /// On success, you can then start listening to messages from the server.
+    ///
+    /// ## Input
+    /// - mount: readable remote mount point (server name)
+    /// - exit_tx: [BroadcastSender] is passed to allow graceful exit on errors
+    ///
+    /// ## Output
+    /// - [NtripHandle] which will route received messages throught the provided channel
+    async fn mount_internal(
+        &mut self,
+        mount: impl ToString,
+        ntrip_tx: UnboundedSender<(Message, Vec<u8>)>,
+    ) -> Result<(JoinHandle<()>, BroadcastSender<()>), NtripClientError> {
         debug!(
             "Connecting to NTRIP server {}/{}",
             self.config.to_url(),
             mount.to_string()
         );
 
+        let (exit_tx, _exit_rx) = tokio::sync::broadcast::channel(1);
+
         let sock = TcpStream::connect(&self.config.to_url()).await?;
 
-        let (rx_handle, ntrip_rx) = match self.config.use_tls {
+        let rx_handle = match self.config.use_tls {
             true => {
                 debug!("Using TLS connection");
 
@@ -215,6 +235,7 @@ impl NtripClient {
                     &self.config,
                     &self.creds,
                     &mount.to_string(),
+                    ntrip_tx,
                     exit_tx.clone(),
                     tls_sock,
                 )
@@ -227,6 +248,7 @@ impl NtripClient {
                     &self.config,
                     &self.creds,
                     &mount.to_string(),
+                    ntrip_tx,
                     exit_tx.clone(),
                     sock,
                 )
@@ -234,19 +256,17 @@ impl NtripClient {
             },
         };
 
-        Ok(NtripHandle {
-            _rx_handle: rx_handle,
-            ntrip_rx,
-        })
+        Ok((rx_handle, exit_tx))
     }
 
     pub async fn handle_connection(
         config: &NtripConfig,
         creds: &NtripCredentials,
         mount: &str,
+        ntrip_tx: UnboundedSender<(Message, Vec<u8>)>,
         exit_tx: BroadcastSender<()>,
         mut sock: impl AsyncRead + AsyncWrite + Unpin + Send + 'static,
-    ) -> Result<(JoinHandle<()>, UnboundedReceiver<(Message, Vec<u8>)>), NtripClientError> {
+    ) -> Result<JoinHandle<()>, NtripClientError> {
         // Setup HTTP headers
         let mut headers = HeaderMap::new();
         headers.append(
@@ -271,17 +291,17 @@ impl NtripClient {
             );
         }
 
-        debug!("Headers: {:#?}", headers);
+        trace!("Headers: {:#?}", headers);
 
         // Write HTTP request
-        debug!("Write HTTP request");
+        trace!("Write HTTP request");
         sock.write_all(format!("GET /{} HTTP/1.0\r\n", mount).as_bytes())
             .await?;
         sock.write_all(format!("Host: {}\r\n", config.to_url()).as_bytes())
             .await?;
 
         // Write HTTP headers
-        debug!("Writing headers");
+        trace!("Writing headers");
         for h in headers.iter() {
             sock.write_all(format!("{}: {}\r\n", h.0.as_str(), h.1.to_str()?).as_bytes())
                 .await?;
@@ -290,18 +310,18 @@ impl NtripClient {
         sock.write_all(b"\r\n").await?;
         sock.flush().await?;
 
-        debug!("Reading response");
+        trace!("Reading response");
         let mut buff = Vec::with_capacity(1024);
 
         // Perform a first read to get the response status
         let n = sock.read_buf(&mut buff).await?;
-        debug!("Read {} bytes, current buffer {} bytes", n, buff.len());
+        trace!("Read {} bytes, current buffer {} bytes", n, buff.len());
 
         // Parse out response status
         let r = String::from_utf8_lossy(&buff[..n]);
         match r.lines().next() {
             Some(status) if status.contains("200 OK") => {
-                debug!("Got 200 OK response");
+                trace!("Got 200 OK response");
             },
             Some(status) => {
                 error!("NTRIP server returned error: {}", status);
@@ -315,7 +335,7 @@ impl NtripClient {
 
         // Flush buffer until the first RTCM message (0xd3)
         if let Some(i) = buff.iter().enumerate().find(|(_i, b)| **b == 0xd3) {
-            debug!(
+            trace!(
                 "Trimming buffer to next potential frame start at index {}",
                 i.0
             );
@@ -324,7 +344,6 @@ impl NtripClient {
 
         // Spawn a task to handle incoming NTRIP data
 
-        let (ntrip_tx, ntrip_rx) = unbounded_channel();
         let mut exit_rx = exit_tx.subscribe();
         let rx_handle = tokio::task::spawn(async move {
             // Track parse errors so we can drop data (or abort) if needed
@@ -334,7 +353,7 @@ impl NtripClient {
                 select! {
                     n = sock.read_buf(&mut buff) => match n {
                         Ok(n) => {
-                            debug!("Read {} bytes, current buffer {} bytes", n, buff.len());
+                            trace!("Read {} bytes, current buffer {} bytes", n, buff.len());
                             trace!("Appended {:02x?}", &buff[buff.len()-n..][..n]);
 
                             // Handle zero length read (connection closed)
@@ -362,7 +381,7 @@ impl NtripClient {
                                         // Parse out message from frame
                                         let m = f.get_message();
 
-                                        debug!("Parsed RTCM message: {:?} (consumed {} bytes)", m, f.frame_len());
+                                        trace!("Parsed RTCM message: {:?} (consumed {} bytes)", m, f.frame_len());
 
                                         // Emit message
                                         let raw_data = buff[..f.frame_len()].to_vec();
@@ -414,12 +433,19 @@ impl NtripClient {
             }
         });
 
-        Ok((rx_handle, ntrip_rx))
+        Ok(rx_handle)
+    }
+}
+
+impl<RX> NtripHandle<RX> {
+    /// Check whether the NTRIP connection is still active (i.e. the read task is still running)
+    pub fn is_running(&self) -> bool {
+        !self._rx_handle.is_finished()
     }
 }
 
 /// [Stream] NTRIP [Message]'s from an [NtripHandle]
-impl Stream for NtripHandle {
+impl Stream for NtripHandle<UnboundedReceiver<(Message, Vec<u8>)>> {
     type Item = (Message, Vec<u8>);
 
     fn poll_next(
@@ -427,6 +453,12 @@ impl Stream for NtripHandle {
         cx: &mut std::task::Context<'_>,
     ) -> std::task::Poll<Option<Self::Item>> {
         self.ntrip_rx.poll_recv(cx)
+    }
+}
+
+impl<RX> Drop for NtripHandle<RX> {
+    fn drop(&mut self) {
+        let _ = self.exit_tx.send(());
     }
 }
 
@@ -473,10 +505,7 @@ mod tests {
 
         let mut client = NtripClient::new(config, creds).await.unwrap();
 
-        let mut h = client
-            .mount(mount.to_string(), exit_tx.clone())
-            .await
-            .unwrap();
+        let mut h = client.mount(mount.to_string()).await.unwrap();
 
         for _i in 0..10 {
             let (m, d) = h.next().await.unwrap();

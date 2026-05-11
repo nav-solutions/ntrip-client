@@ -3,7 +3,7 @@ use std::str::FromStr;
 use geoutils::Location;
 use isocountry::CountryCode;
 use strum::{Display, EnumString, VariantNames};
-use tracing::debug;
+use tracing::{debug, trace};
 
 /// Information about an NTRIP / SNIP server and its mounts
 #[derive(Clone, PartialEq, Debug)]
@@ -126,7 +126,7 @@ impl ServerInfo {
 
         for (i, s) in self.services.iter().enumerate() {
             if let Ok(d) = s.location.distance_to(location) {
-                debug!("Distance to {}: {:.3} km", s.name, d);
+                trace!("Distance to {}: {:.3}", s.name, d);
                 if d.meters() < min_distance {
                     min_distance = d.meters();
                     min_entry = Some(i);
