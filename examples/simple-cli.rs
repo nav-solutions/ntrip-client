@@ -120,7 +120,7 @@ async fn main() -> Result<(), anyhow::Error> {
             debug!("Connecting to NTRIP server");
 
             // Setup the NTRIP client
-            let mut client = client.mount(mount, exit_tx.clone()).await?;
+            let mut client = client.mount(mount).await?;
 
             // Process incoming RTCM messages
             loop {
