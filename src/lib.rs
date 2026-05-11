@@ -12,4 +12,4 @@ mod error;
 pub use error::NtripClientError;
 
 mod client;
-pub use client::NtripClient;
+pub use client::{NtripClient, NtripHandle};

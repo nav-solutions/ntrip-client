@@ -57,3 +57,4 @@ serde = { version = "1", optional = true, features = ["derive"] }
 name = "simple-cli"
 path = "examples/simple-cli.rs"
 required-features = ["clap", "log"]
+
