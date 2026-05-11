@@ -88,6 +88,7 @@ impl NtripConfig {
 /// Credentials for an NTRIP (RTCM) service
 #[derive(Clone, Default, PartialEq, Debug)]
 #[cfg_attr(feature = "clap", derive(clap::Parser))]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct NtripCredentials {
     /// Username for the NTRIP service
     #[cfg_attr(feature = "clap", clap(long = "ntrip-user", env = "NTRIP_USER"))]
@@ -119,6 +120,7 @@ impl NtripCredentials {
 
 /// Common RTCM data providers
 #[derive(Clone, PartialEq, Debug, EnumString, Display, VariantNames)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum RtcmProvider {
     /// Land Information New Zealand
     ///
