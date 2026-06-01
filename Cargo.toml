@@ -1,6 +1,6 @@
 [package]
 name = "ntrip-client"
-version = "0.2.0"
+version = "0.2.1"
 license = "MPL-2.0"
 authors = [
     "Guillaume W. Bres <guillaume.bressaix@gmail.com>",
